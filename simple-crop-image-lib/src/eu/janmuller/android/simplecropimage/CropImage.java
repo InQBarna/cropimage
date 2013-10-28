@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.concurrent.CountDownLatch;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Intent;
@@ -66,6 +67,7 @@ public class CropImage extends MonitoredActivity {
     public static final  String ASPECT_Y               = "aspectY";
     public static final  String OUTPUT_X               = "outputX";
     public static final  String OUTPUT_Y               = "outputY";
+    public static final	 String COMPRESS_QUALITY	   = "quality";
     public static final  String SCALE_UP_IF_NEEDED     = "scaleUpIfNeeded";
     public static final  String CIRCLE_CROP            = "circleCrop";
     public static final  String RETURN_DATA            = "return-data";
@@ -96,11 +98,13 @@ public class CropImage extends MonitoredActivity {
     // These options specifiy the output image size and whether we should
     // scale the output to fit it (or just crop it).
     private boolean mScaleUp = true;
+    private int quality;
 
     private final BitmapManager.ThreadSet mDecodingThreads =
             new BitmapManager.ThreadSet();
 
-    @Override
+    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
+	@Override
     public void onCreate(Bundle icicle) {
 
         super.onCreate(icicle);
@@ -117,16 +121,16 @@ public class CropImage extends MonitoredActivity {
         Bundle extras = intent.getExtras();
         if (extras != null) {
 
-            if (extras.getString(CIRCLE_CROP) != null) {
+        	if (extras.getString(CIRCLE_CROP) != null) {
 
-        	if (Build.VERSION.SDK_INT > Build.VERSION_CODES.HONEYCOMB) {
-            		mImageView.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+        		if (Build.VERSION.SDK_INT > Build.VERSION_CODES.HONEYCOMB) {
+        			mImageView.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+        		}
+
+        		mCircleCrop = true;
+        		mAspectX = 1;
+        		mAspectY = 1;
         	}
-
-                mCircleCrop = true;
-                mAspectX = 1;
-                mAspectY = 1;
-            }
 
             mImagePath = extras.getString(IMAGE_PATH);
 
@@ -149,6 +153,13 @@ public class CropImage extends MonitoredActivity {
             }
             mOutputX = extras.getInt(OUTPUT_X);
             mOutputY = extras.getInt(OUTPUT_Y);
+            
+            quality = extras.getInt(COMPRESS_QUALITY, 90);
+            
+            if (quality < 20 || quality > 100) {
+            	throw new IllegalArgumentException("Quality parameter must be between 20 and 100");
+            }
+            
             mScale = extras.getBoolean(SCALE, true);
             mScaleUp = extras.getBoolean(SCALE_UP_IF_NEEDED, true);
         }
@@ -418,7 +429,7 @@ public class CropImage extends MonitoredActivity {
             try {
                 outputStream = mContentResolver.openOutputStream(mSaveUri);
                 if (outputStream != null) {
-                    croppedImage.compress(mOutputFormat, 90, outputStream);
+                    croppedImage.compress(mOutputFormat, quality, outputStream);
                 }
             } catch (IOException ex) {
 
